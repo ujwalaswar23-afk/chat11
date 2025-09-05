@@ -1,11 +1,11 @@
 import React, { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { Search, Plus, MessageCircle, LogOut, Phone } from 'lucide-react'
+import { Search, LogOut, MessageCircle, Users, Wifi } from 'lucide-react'
+import UserList from './UserList'
 
-const ChatSidebar = ({ chats, selectedChat, onSelectChat, onStartChat, user }) => {
+const ChatSidebar = ({ chats, selectedChat, onSelectChat, onStartChat, user, onlineUsers, allUsers }) => {
   const [searchTerm, setSearchTerm] = useState('')
-  const [showNewChatModal, setShowNewChatModal] = useState(false)
-  const [newChatPhone, setNewChatPhone] = useState('')
+  const [activeTab, setActiveTab] = useState('chats') // 'chats', 'online', 'all'
   const { logout } = useAuth()
 
   const filteredChats = chats.filter(chat =>
@@ -13,16 +13,13 @@ const ChatSidebar = ({ chats, selectedChat, onSelectChat, onStartChat, user }) =
     chat.phoneNumber.includes(searchTerm)
   )
 
-  const handleNewChat = (e) => {
-    e.preventDefault()
-    if (newChatPhone.trim()) {
-      onStartChat(newChatPhone.trim())
-      setNewChatPhone('')
-      setShowNewChatModal(false)
-    }
+  const handleSelectUser = (peer) => {
+    onStartChat(peer);
+    setActiveTab('chats'); // Switch back to chats after starting a new one
   }
 
   const formatTime = (timestamp) => {
+    if (!timestamp) return '';
     const date = new Date(timestamp)
     const now = new Date()
     const diff = now - date
@@ -43,60 +40,19 @@ const ChatSidebar = ({ chats, selectedChat, onSelectChat, onStartChat, user }) =
     }
   }
 
-  return (
-    <div className="w-1/3 bg-white border-r border-gray-200 flex flex-col">
-      {/* Header */}
-      <div className="bg-whatsapp-dark text-white p-4 flex items-center justify-between">
-        <div className="flex items-center">
-          <img
-            src={user.avatar}
-            alt={user.name}
-            className="w-10 h-10 rounded-full mr-3"
-          />
-          <div>
-            <h2 className="font-semibold">{user.name}</h2>
-            <p className="text-sm opacity-75">{user.phoneNumber}</p>
-          </div>
-        </div>
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={() => setShowNewChatModal(true)}
-            className="p-2 hover:bg-whatsapp-secondary rounded-full transition-colors"
-            title="New Chat"
-          >
-            <Plus className="w-5 h-5" />
-          </button>
-          <button
-            onClick={logout}
-            className="p-2 hover:bg-whatsapp-secondary rounded-full transition-colors"
-            title="Logout"
-          >
-            <LogOut className="w-5 h-5" />
-          </button>
-        </div>
-      </div>
-
-      {/* Search */}
-      <div className="p-3 bg-gray-50">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search chats..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-whatsapp-primary"
-          />
-        </div>
-      </div>
-
-      {/* Chat List */}
-      <div className="flex-1 overflow-y-auto scrollbar-hide">
-        {filteredChats.length === 0 ? (
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'online':
+        return <UserList users={onlineUsers} onSelectUser={handleSelectUser} title="Online Users" />;
+      case 'all':
+        return <UserList users={allUsers} onSelectUser={handleSelectUser} title="All Users" />;
+      case 'chats':
+      default:
+        return filteredChats.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-gray-500">
             <MessageCircle className="w-16 h-16 mb-4 opacity-50" />
             <p className="text-lg font-medium">No chats yet</p>
-            <p className="text-sm">Start a new conversation</p>
+            <p className="text-sm">Click on 'All Users' to start a new conversation</p>
           </div>
         ) : (
           filteredChats.map((chat) => (
@@ -118,11 +74,9 @@ const ChatSidebar = ({ chats, selectedChat, onSelectChat, onStartChat, user }) =
                     <h3 className="font-semibold text-gray-900 truncate">
                       {chat.name}
                     </h3>
-                    {chat.lastMessageTime && (
-                      <span className="text-xs text-gray-500">
-                        {formatTime(chat.lastMessageTime)}
-                      </span>
-                    )}
+                    <span className="text-xs text-gray-500">
+                      {formatTime(chat.lastMessageTime)}
+                    </span>
                   </div>
                   <p className="text-sm text-gray-600 truncate">
                     {chat.lastMessage || 'No messages yet'}
@@ -136,50 +90,67 @@ const ChatSidebar = ({ chats, selectedChat, onSelectChat, onStartChat, user }) =
               </div>
             </div>
           ))
-        )}
+        );
+    }
+  }
+
+  return (
+    <div className="w-1/3 bg-white border-r border-gray-200 flex flex-col">
+      {/* Header */}
+      <div className="bg-whatsapp-dark text-white p-4 flex items-center justify-between">
+        <div className="flex items-center">
+          <img
+            src={user.avatar}
+            alt={user.name}
+            className="w-10 h-10 rounded-full mr-3"
+          />
+          <div>
+            <h2 className="font-semibold">{user.name}</h2>
+            <p className="text-sm opacity-75">{user.phoneNumber}</p>
+          </div>
+        </div>
+        <button
+          onClick={logout}
+          className="p-2 hover:bg-whatsapp-secondary rounded-full transition-colors"
+          title="Logout"
+        >
+          <LogOut className="w-5 h-5" />
+        </button>
       </div>
 
-      {/* New Chat Modal */}
-      {showNewChatModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-96 mx-4">
-            <h3 className="text-lg font-semibold mb-4">Start New Chat</h3>
-            <form onSubmit={handleNewChat}>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Phone Number
-                </label>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    type="tel"
-                    value={newChatPhone}
-                    onChange={(e) => setNewChatPhone(e.target.value)}
-                    placeholder="+91 9876543210"
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-whatsapp-primary focus:border-transparent outline-none"
-                    required
-                  />
-                </div>
-              </div>
-              <div className="flex justify-end space-x-3">
-                <button
-                  type="button"
-                  onClick={() => setShowNewChatModal(false)}
-                  className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-whatsapp-primary text-white rounded-lg hover:bg-whatsapp-secondary transition-colors"
-                >
-                  Start Chat
-                </button>
-              </div>
-            </form>
+      {/* Search (only for chats tab) */}
+      {activeTab === 'chats' && (
+        <div className="p-3 bg-gray-50">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search chats..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-whatsapp-primary"
+            />
           </div>
         </div>
       )}
+
+      {/* Tab Navigation */}
+      <div className="flex justify-around border-b">
+        <button onClick={() => setActiveTab('chats')} className={`flex-1 p-3 text-sm font-medium flex items-center justify-center gap-2 ${activeTab === 'chats' ? 'border-b-2 border-whatsapp-primary text-whatsapp-primary' : 'text-gray-600'}`}>
+          <MessageCircle size={18} /> Chats
+        </button>
+        <button onClick={() => setActiveTab('online')} className={`flex-1 p-3 text-sm font-medium flex items-center justify-center gap-2 ${activeTab === 'online' ? 'border-b-2 border-whatsapp-primary text-whatsapp-primary' : 'text-gray-600'}`}>
+          <Wifi size={18} /> Online
+        </button>
+        <button onClick={() => setActiveTab('all')} className={`flex-1 p-3 text-sm font-medium flex items-center justify-center gap-2 ${activeTab === 'all' ? 'border-b-2 border-whatsapp-primary text-whatsapp-primary' : 'text-gray-600'}`}>
+          <Users size={18} /> All Users
+        </button>
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto scrollbar-hide">
+        {renderContent()}
+      </div>
     </div>
   )
 }

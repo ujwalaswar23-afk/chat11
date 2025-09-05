@@ -4,6 +4,7 @@ import { useSocket } from '../context/SocketContext'
 import ChatSidebar from './ChatSidebar'
 import ChatWindow from './ChatWindow'
 import PaymentModal from './PaymentModal'
+import UserList from './UserList'
 
 const ChatInterface = () => {
   const [selectedChat, setSelectedChat] = useState(null)
@@ -11,11 +12,35 @@ const ChatInterface = () => {
   const [messages, setMessages] = useState({})
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [paymentRecipient, setPaymentRecipient] = useState(null)
+  const [onlineUsers, setOnlineUsers] = useState([]);
+  const [allUsers, setAllUsers] = useState([]);
   const { user } = useAuth()
   const { socket } = useSocket()
 
   useEffect(() => {
+    // Fetch all users
+    const fetchUsers = async () => {
+      try {
+        const response = await fetch('/api/users');
+        const users = await response.json();
+        // Filter out the current user from the list
+        setAllUsers(users.filter(u => u._id !== user.id));
+      } catch (error) {
+        console.error('Error fetching users:', error);
+      }
+    };
+
+    fetchUsers();
+  }, [user.id]);
+
+  useEffect(() => {
     if (socket) {
+      // Listen for online users
+      socket.on('onlineUsers', (users) => {
+        // Filter out the current user from the online list
+        setOnlineUsers(users.filter(u => u.userId !== user.id));
+      });
+
       // Listen for new messages
       socket.on('newMessage', (message) => {
         setMessages(prev => ({
@@ -52,9 +77,10 @@ const ChatInterface = () => {
         socket.off('newMessage')
         socket.off('chatList')
         socket.off('messageHistory')
+        socket.off('onlineUsers');
       }
     }
-  }, [socket])
+  }, [socket, user.id])
 
   // When a chat is selected, request its message history
   useEffect(() => {
@@ -79,13 +105,13 @@ const ChatInterface = () => {
     socket.emit('sendMessage', message)
   }
 
-  const handleStartChat = (phoneNumber) => {
+  const handleStartChat = (peer) => {
     if (!socket) return
 
     socket.emit('startChat', {
       initiatorId: user.id,
       initiatorPhone: user.phoneNumber,
-      phoneNumber: phoneNumber
+      phoneNumber: peer.phoneNumber
     })
   }
 
@@ -112,6 +138,8 @@ const ChatInterface = () => {
         onSelectChat={setSelectedChat}
         onStartChat={handleStartChat}
         user={user}
+        onlineUsers={onlineUsers}
+        allUsers={allUsers}
       />
       
       <ChatWindow

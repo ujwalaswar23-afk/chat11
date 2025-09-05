@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
+import { useSocket } from './SocketContext'
 
 const AuthContext = createContext()
 
@@ -13,6 +14,7 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
+  const { socket } = useSocket?.() || {};
 
   useEffect(() => {
     // Check if user is logged in from localStorage
@@ -31,13 +33,15 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     setUser(null)
     localStorage.removeItem('chatapp_user')
+    if (socket) socket.disconnect();
   }
 
   const value = {
     user,
     login,
     logout,
-    loading
+    loading,
+    socket
   }
 
   return (

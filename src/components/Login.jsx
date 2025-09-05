@@ -10,25 +10,44 @@ const Login = () => {
   const { login } = useAuth()
   const navigate = useNavigate()
 
+  const { socket } = useSocket();
   const handleSubmit = async (e) => {
-    e.preventDefault()
-    if (!phoneNumber || !name) return
-
-    setLoading(true)
-    
-    // Simulate login process
-    setTimeout(() => {
-      const userData = {
-        id: Date.now().toString(),
-        name: name.trim(),
-        phoneNumber: phoneNumber.trim(),
-        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=25D366&color=fff`
-      }
-      
-      login(userData)
-      navigate('/chat')
-      setLoading(false)
-    }, 1000)
+    e.preventDefault();
+    if (!phoneNumber || !name) return;
+    setLoading(true);
+    if (!socket) {
+      alert('Unable to connect to server. Please try again.');
+      setLoading(false);
+      return;
+    }
+    // Register/login user via socket
+    const userData = {
+      name: name.trim(),
+      phoneNumber: phoneNumber.trim(),
+      avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=25D366&color=fff`
+    };
+    socket.emit('userJoin', userData);
+    // Listen for chatList event to get backend userId
+    const handleChatList = (chats) => {
+      // Get userId from socket's onlineUsers or from server
+      socket.emit('getOnlineUsers');
+      socket.once('onlineUsers', (users) => {
+        const backendUser = users.find(u => u.phoneNumber === userData.phoneNumber);
+        if (backendUser) {
+          login({
+            id: backendUser.userId,
+            name: userData.name,
+            phoneNumber: userData.phoneNumber,
+            avatar: userData.avatar
+          });
+          navigate('/chat');
+        } else {
+          alert('Login failed. Please try again.');
+        }
+        setLoading(false);
+      });
+    };
+    socket.once('chatList', handleChatList);
   }
 
   return (
